@@ -1,0 +1,71 @@
+{
+  "summary": {
+    "total": 10,
+    "passed": 7,
+    "failed": 3,
+    "passRate": "70.00%"
+  },
+  "timestamp": "2025-09-20T01:38:25.966Z",
+  "details": [
+    {
+      "test": "Health Check",
+      "passed": false,
+      "details": "",
+      "timestamp": "2025-09-20T01:38:25.532Z"
+    },
+    {
+      "test": "User Registration",
+      "passed": false,
+      "details": "Email already registered",
+      "timestamp": "2025-09-20T01:38:25.927Z"
+    },
+    {
+      "test": "Get All Ingredients",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-09-20T01:38:25.936Z"
+    },
+    {
+      "test": "Get Subscription Plans",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-09-20T01:38:25.938Z"
+    },
+    {
+      "test": "404 Error Handling",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-09-20T01:38:25.939Z"
+    },
+    {
+      "test": "Validation Error Handling",
+      "passed": true,
+      "details": "",
+      "timestamp": "2025-09-20T01:38:25.942Z"
+    },
+    {
+      "test": "Unauthorized Access Handling",
+      "passed": false,
+      "details": "",
+      "timestamp": "2025-09-20T01:38:25.943Z"
+    },
+    {
+      "test": "Rate Limiting",
+      "passed": true,
+      "details": "Rate limited: false",
+      "timestamp": "2025-09-20T01:38:25.954Z"
+    },
+    {
+      "test": "Performance /ingredients",
+      "passed": true,
+      "details": "Average: 1.60ms",
+      "timestamp": "2025-09-20T01:38:25.962Z"
+    },
+    {
+      "test": "Performance /monetization/subscription-plans",
+      "passed": true,
+      "details": "Average: 0.80ms",
+      "timestamp": "2025-09-20T01:38:25.966Z"
+    }
+  ]
+}

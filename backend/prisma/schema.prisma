@@ -1,0 +1,567 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum RecipeStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum Diet {
+  NONE
+  VEGETARIAN
+  VEGAN
+  KETO
+  PALEO
+  PESCETARIAN
+  HALAL
+}
+
+model User {
+  id                String                @id @default(uuid())
+  email             String                @unique
+  password          String?               // nullable if social login
+  name              String?
+  role              Role                  @default(USER)
+  prefs             Json?                 // dietary prefs, units (metric/imperial), allergies
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  pantry            PantryItem[]
+  requests          RecipeRequest[]
+  subscription      UserSubscription?
+  transactions      PaymentTransaction[]
+  recipeSuggestions RecipeSuggestionLog[]
+  
+  // Community & Social Relations
+  communityRecipes  CommunityRecipe[]     // recipes created by user
+  recipeComments    RecipeComment[]       // comments made by user
+  recipeLikes       RecipeLike[]          // recipes liked by user
+  ownedMealPlans    GroupMealPlan[]       @relation("MealPlanOwner")
+  memberMealPlans   GroupMealPlan[]       @relation("MealPlanMember")
+  
+  // Analytics Relations
+  analyticsEvents   AnalyticsEvent[]
+  modelUsageLogs    ModelUsageLog[]
+
+  @@map("users")
+}
+
+model PantryItem {
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  name       String
+  normalized String?  // normalized name (e.g., "tomato")
+  quantity   Float?   // numeric quantity if known
+  unit       String?  // "g", "ml", "pcs"
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@map("pantry_items")
+}
+
+model RecipeRequest {
+  id           String       @id @default(uuid())
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  input        Json         // raw input: {ingredients:[...], calories:, servings:, time:, diet:}
+  status       RecipeStatus @default(PENDING)
+  result       Json?        // full recipe JSON response (from AI)
+  costEstimate Float?
+  jobId        String?      // queue job id
+  errorMessage String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("recipe_requests")
+}
+
+// Original AI-generated Recipe model (keeping for backward compatibility)
+model Recipe {
+  id                String                @id @default(uuid())
+  requestId         String?               // link to original request
+  title             String
+  slug              String                @unique
+  servings          Int
+  totalCalories     Int
+  caloriesPer       Int
+  ingredients       Json                  // array of {name, qty, unit}
+  steps             Json                  // array of step objects
+  nutrition         Json?                 // macros, vitamins...
+  imageUrl          String?
+  imagePrompt       String?
+  estimatedCost     Float?
+  difficulty        String?               // easy, medium, hard
+  tags              Json?                 // array of tags
+  videoUrl          String?               // direct video URL for easy access
+  createdById       String?
+  isPublic          Boolean               @default(false)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  suggestionLogs    RecipeSuggestionLog[] // recipes generated from AI suggestions
+  videos            RecipeVideo[]         // recipe videos
+
+  @@map("recipes")
+}
+
+// Core Recipe models for CRUD operations
+model CoreRecipe {
+  id          String              @id @default(uuid())
+  title       String
+  description String?
+  steps       String[]            // array of string steps
+  nutrition   Json?               // {calories, protein, fat, carbs}
+  totalCost   Decimal?            @db.Decimal(10,2)
+  isDeleted   Boolean             @default(false) // soft delete
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  
+  // Relations
+  ingredients CoreRecipeIngredient[]
+
+  @@map("core_recipes")
+}
+
+model Ingredient {
+  id              String              @id @default(uuid())
+  name            String              @unique
+  description     String?
+  canonicalUnit   String              // g, kg, ml, l, pcs
+  basePrice       Decimal?            @db.Decimal(10,2) // price per canonical_unit
+  currency        String              @default("VND") // VND, USD
+  available       Boolean             @default(true)
+  metadata        Json?               // additional pricing info, supplier, etc.
+  isDeleted       Boolean             @default(false)
+  deletedAt       DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  // Relations
+  recipes         CoreRecipeIngredient[]
+
+  @@index([name])
+  @@map("ingredients")
+}
+
+model CoreRecipeIngredient {
+  id                  String       @id @default(uuid())
+  recipeId            String
+  ingredientId        String
+  quantity            Decimal      @db.Decimal(10,3) // precise quantity
+  unit                String       // e.g., "g", "pcs", "ml"
+  cachedPricePerUnit  Decimal?     @db.Decimal(10,2) // cached price per unit at time of adding
+  cachedTotalPrice    Decimal?     @db.Decimal(10,2) // cached total price for this ingredient
+  createdAt           DateTime     @default(now())
+  
+  // Relations
+  recipe              CoreRecipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient          Ingredient   @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, ingredientId])
+  @@index([recipeId])
+  @@map("core_recipe_ingredients")
+}
+
+model ImageAsset {
+  id        String   @id @default(uuid())
+  url       String
+  thumbUrl  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@map("image_assets")
+}
+
+// AI Recipe Generation Models
+enum SuggestionStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum VideoGenerationStatus {
+  PENDING
+  PROCESSING
+  DONE
+  FAILED
+}
+
+enum CommunityRecipeStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+enum PaymentMethod {
+  STRIPE
+  MOMO
+  ZALOPAY
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum AnalyticsEventType {
+  RECIPE_GENERATION
+  VIDEO_GENERATION
+  COMMUNITY_POST
+  COMMUNITY_COMMENT
+  COMMUNITY_LIKE
+  SUBSCRIPTION_CREATED
+  SUBSCRIPTION_UPGRADED
+  SUBSCRIPTION_CANCELED
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  USER_REGISTRATION
+  USER_LOGIN
+  INGREDIENT_SCAN
+  RECIPE_VIEW
+  VIDEO_VIEW
+}
+
+enum AdminReportType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+model RecipeSuggestionLog {
+  id                   String           @id @default(uuid())
+  userId               String
+  inputIngredients     Json             // array of {name, quantity, unit}
+  preferences          Json?            // {diet, difficulty, timeLimit, servings}
+  currency             String           @default("VND")
+  generatedRecipeId    String?          // link to Recipe model when created
+  status               SuggestionStatus @default(PENDING)
+  errorMessage         String?
+  processingTimeMs     Int?             // track generation performance
+  totalCost            Decimal?         @db.Decimal(10,2)
+  createdAt            DateTime         @default(now())
+  completedAt          DateTime?
+  updatedAt            DateTime         @updatedAt
+  
+  // Relations
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  generatedRecipe      Recipe?          @relation(fields: [generatedRecipeId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("recipe_suggestion_logs")
+}
+
+model AIJobQueue {
+  id           String    @id @default(uuid())
+  type         String    // "recipe_generation", "image_analysis", "video_generation", etc.
+  payload      Json      // job data
+  status       JobStatus @default(QUEUED)
+  retryCount   Int       @default(0)
+  maxRetries   Int       @default(3)
+  errorMessage String?
+  scheduledAt  DateTime  @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  result       Json?     // processing result
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([status, scheduledAt])
+  @@index([type, status])
+  @@map("ai_job_queue")
+}
+
+model RecipeVideo {
+  id           String                 @id @default(uuid())
+  recipeId     String
+  status       VideoGenerationStatus @default(PENDING)
+  videoUrl     String?               // URL to generated video
+  duration     Int?                  // video duration in seconds
+  resolution   String?               // e.g., "720p", "1080p"
+  style        String?               // generation style (step-by-step, timelapse, etc.)
+  narration    Boolean               @default(false) // whether video has narration
+  voice        String?               // voice type (female-vietnamese, male-english, etc.)
+  thumbnailUrl String?               // video thumbnail URL
+  fileSize     Int?                  // file size in bytes
+  errorMessage String?               // error message if generation failed
+  jobId        String?               // reference to AIJobQueue for async processing
+  metadata     Json?                 // additional metadata (fps, codec, etc.)
+  generatedBy  String?               // user ID who requested the generation
+  processingTimeMs Int?              // time taken to generate video in milliseconds
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  
+  // Relations
+  recipe       Recipe                @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  
+  @@index([recipeId])
+  @@index([status])
+  @@index([generatedBy])
+  @@map("recipe_videos")
+}
+
+// Monetization & Subscription Models
+model SubscriptionPlan {
+  id           String        @id @default(uuid())
+  name         String        @unique // Free, Pro, Premium
+  price        Decimal       @db.Decimal(10,2) // monthly price
+  yearlyPrice  Decimal?      @db.Decimal(10,2) // yearly price (with discount)
+  billingCycle BillingCycle  @default(MONTHLY)
+  features     Json          // limits: {maxRecipeGen: 10, maxVideoGen: 2, maxCommunityPosts: 50}
+  isActive     Boolean       @default(true)
+  sortOrder    Int           @default(0) // for display ordering
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  
+  // Relations
+  subscriptions UserSubscription[]
+  
+  @@index([isActive, sortOrder])
+  @@map("subscription_plans")
+}
+
+model UserSubscription {
+  id               String             @id @default(uuid())
+  userId           String             @unique
+  planId           String
+  status           SubscriptionStatus @default(ACTIVE)
+  startDate        DateTime           @default(now())
+  endDate          DateTime?
+  nextBillingDate  DateTime?
+  usageQuota       Json               // {recipeGenerationsLeft: 10, videoGenerationsLeft: 2, communityPostsLeft: 50}
+  billingCycle     BillingCycle       @default(MONTHLY)
+  autoRenew        Boolean            @default(true)
+  canceledAt       DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  
+  // Relations
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan             SubscriptionPlan   @relation(fields: [planId], references: [id])
+  transactions     PaymentTransaction[]
+  
+  @@index([userId])
+  @@index([status])
+  @@index([nextBillingDate])
+  @@map("user_subscriptions")
+}
+
+model PaymentTransaction {
+  id               String        @id @default(uuid())
+  userId           String
+  subscriptionId   String
+  amount           Decimal       @db.Decimal(10,2)
+  currency         String        @default("VND")
+  paymentMethod    PaymentMethod
+  status           PaymentStatus @default(PENDING)
+  externalId       String?       // Payment provider transaction ID
+  metadata         Json?         // Provider-specific data
+  failureReason    String?
+  processedAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  
+  // Relations
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription     UserSubscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([externalId])
+  @@map("payment_transactions")
+}
+
+// Community & Social Features Models
+model CommunityRecipe {
+  id            String                  @id @default(uuid())
+  userId        String                  // author
+  title         String
+  description   String
+  steps         String[]                // array of cooking steps
+  ingredients   Json                    // array of {name, quantity, unit}
+  status        CommunityRecipeStatus   @default(DRAFT)
+  servings      Int?                    // number of servings
+  prepTime      Int?                    // preparation time in minutes
+  cookTime      Int?                    // cooking time in minutes
+  difficulty    String?                 // easy, medium, hard
+  cuisine       String?                 // cuisine type (Vietnamese, Italian, etc.)
+  tags          String[]                // array of tags for categorization
+  imageUrl      String?                 // recipe image URL
+  nutritionInfo Json?                   // nutrition information
+  isDeleted     Boolean                 @default(false) // soft delete
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  
+  // Relations
+  author        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments      RecipeComment[]
+  likes         RecipeLike[]
+  mealPlans     GroupMealPlan[]         @relation("MealPlanRecipes")
+  
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([cuisine])
+  @@map("community_recipes")
+}
+
+model RecipeComment {
+  id                String            @id @default(uuid())
+  userId            String
+  communityRecipeId String
+  content           String
+  parentCommentId   String?           // for threaded replies
+  isDeleted         Boolean           @default(false) // soft delete
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  // Relations
+  author            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  communityRecipe   CommunityRecipe   @relation(fields: [communityRecipeId], references: [id], onDelete: Cascade)
+  parentComment     RecipeComment?    @relation("CommentReplies", fields: [parentCommentId], references: [id])
+  replies           RecipeComment[]   @relation("CommentReplies")
+  
+  @@index([communityRecipeId])
+  @@index([userId])
+  @@index([parentCommentId])
+  @@index([createdAt])
+  @@map("recipe_comments")
+}
+
+model RecipeLike {
+  id                String          @id @default(uuid())
+  userId            String
+  communityRecipeId String
+  createdAt         DateTime        @default(now())
+  
+  // Relations
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  communityRecipe   CommunityRecipe @relation(fields: [communityRecipeId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, communityRecipeId]) // prevent duplicate likes
+  @@index([communityRecipeId])
+  @@index([userId])
+  @@map("recipe_likes")
+}
+
+model GroupMealPlan {
+  id          String            @id @default(uuid())
+  title       String
+  description String?
+  ownerId     String            // meal plan creator
+  members     String[]          // array of user IDs
+  recipes     String[]          // array of community recipe IDs
+  startDate   DateTime?
+  endDate     DateTime?
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  
+  // Relations
+  owner       User              @relation("MealPlanOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  memberUsers User[]            @relation("MealPlanMember")
+  recipeList  CommunityRecipe[] @relation("MealPlanRecipes")
+  
+  @@index([ownerId])
+  @@index([isActive])
+  @@index([startDate])
+  @@map("group_meal_plans")
+}
+
+// Analytics & Admin Dashboard Models
+model AnalyticsEvent {
+  id         String              @id @default(uuid())
+  userId     String?             // nullable for anonymous events
+  eventType  AnalyticsEventType
+  metadata   Json?               // feature details, IDs, costs, etc.
+  sessionId  String?             // for session tracking
+  userAgent  String?             // for device/browser analytics
+  ipAddress  String?             // for geo analytics (anonymized)
+  createdAt  DateTime            @default(now())
+  
+  // Relations
+  user       User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([eventType])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("analytics_events")
+}
+
+model AdminReport {
+  id          String          @id @default(uuid())
+  type        AdminReportType
+  title       String
+  metrics     Json            // aggregated stats and data
+  dateRange   Json            // {from: Date, to: Date}
+  filters     Json?           // applied filters
+  generatedAt DateTime        @default(now())
+  generatedBy String?         // admin user ID
+  
+  @@index([type, generatedAt])
+  @@index([generatedAt])
+  @@map("admin_reports")
+}
+
+model ModelUsageLog {
+  id              String   @id @default(uuid())
+  userId          String?
+  model           String   // "gpt-4", "claude-3", "dall-e", etc.
+  operation       String   // "recipe-generation", "video-generation", "image-generation"
+  tokensUsed      Int?     // for LLM models
+  processingTime  Int?     // in milliseconds
+  estimatedCost   Decimal? @db.Decimal(10,4) // in USD
+  metadata        Json?    // model-specific data
+  createdAt       DateTime @default(now())
+  
+  // Relations
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([model, createdAt])
+  @@index([operation, createdAt])
+  @@index([userId, createdAt])
+  @@map("model_usage_logs")
+}
