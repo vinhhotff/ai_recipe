@@ -54,6 +54,10 @@ model User {
   ownedMealPlans    GroupMealPlan[]       @relation("MealPlanOwner")
   memberMealPlans   GroupMealPlan[]       @relation("MealPlanMember")
   
+  // AI Recipe Relations
+  aiRecipeLikes     AiRecipeLike[]        @relation("AiRecipeLikes") // AI recipes they liked
+  aiRecipeComments  AiRecipeComment[]     @relation("AiRecipeComments") // AI recipe comments
+  
   // Analytics Relations
   analyticsEvents   AnalyticsEvent[]
   modelUsageLogs    ModelUsageLog[]
@@ -117,8 +121,50 @@ model Recipe {
   updatedAt         DateTime              @updatedAt
   suggestionLogs    RecipeSuggestionLog[] // recipes generated from AI suggestions
   videos            RecipeVideo[]         // recipe videos
+  likes             AiRecipeLike[]        // recipe likes
+  comments          AiRecipeComment[]     // recipe comments
 
   @@map("recipes")
+}
+
+// AI Recipe interactions (separate from Community Recipe interactions)
+model AiRecipeLike {
+  id        String   @id @default(uuid())
+  userId    String
+  recipeId  String
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user      User     @relation("AiRecipeLikes", fields: [userId], references: [id], onDelete: Cascade)
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, recipeId]) // prevent duplicate likes
+  @@index([recipeId])
+  @@index([userId])
+  @@map("ai_recipe_likes")
+}
+
+model AiRecipeComment {
+  id              String            @id @default(uuid())
+  userId          String
+  recipeId        String
+  content         String
+  parentCommentId String?           // for threaded replies
+  isDeleted       Boolean           @default(false) // soft delete
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  // Relations
+  user            User              @relation("AiRecipeComments", fields: [userId], references: [id], onDelete: Cascade)
+  recipe          Recipe            @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  parentComment   AiRecipeComment?  @relation("AiCommentReplies", fields: [parentCommentId], references: [id])
+  replies         AiRecipeComment[] @relation("AiCommentReplies")
+  
+  @@index([recipeId])
+  @@index([userId])
+  @@index([parentCommentId])
+  @@index([createdAt])
+  @@map("ai_recipe_comments")
 }
 
 // Core Recipe models for CRUD operations

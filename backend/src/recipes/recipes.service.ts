@@ -4,43 +4,20 @@ import { Queue } from 'bull';
 import { PrismaService } from '../prisma/prisma.service';
 import { GenerateRecipeDto } from './dto/generate-recipe.dto';
 import { VideoGeneratorService } from './video-generator.service';
+import { RecipeGeneratorService } from './recipe-generator.service';
 
 @Injectable()
 export class RecipesService {
   constructor(
     private prisma: PrismaService,
     @InjectQueue('recipe-generation') private recipeQueue: Queue,
-    private videoGeneratorService: VideoGeneratorService
+    private videoGeneratorService: VideoGeneratorService,
+    private recipeGeneratorService: RecipeGeneratorService
   ) {}
 
   async generateRecipe(userId: string, generateRecipeDto: GenerateRecipeDto) {
-    // Create recipe request
-    const request = await this.prisma.recipeRequest.create({
-      data: {
-        userId,
-        input: generateRecipeDto as any,
-        status: 'PENDING',
-      },
-    });
-
-    // Add job to queue
-    const job = await this.recipeQueue.add('generate-recipe', {
-      requestId: request.id,
-      userId,
-      input: generateRecipeDto,
-    });
-
-    // Update request with job ID
-    await this.prisma.recipeRequest.update({
-      where: { id: request.id },
-      data: { jobId: job.id.toString() },
-    });
-
-    return {
-      requestId: request.id,
-      jobId: job.id.toString(),
-      status: 'PENDING',
-    };
+    // Call the improved RecipeGeneratorService directly
+    return this.recipeGeneratorService.generateRecipe(generateRecipeDto);
   }
 
   async getRecipeRequest(requestId: string, userId: string) {

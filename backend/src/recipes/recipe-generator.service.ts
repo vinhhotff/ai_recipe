@@ -15,16 +15,29 @@ export class RecipeGeneratorService {
     private prisma: PrismaService
   ) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    console.log('🔑 OpenAI API Key detected:', apiKey ? `${apiKey.slice(0, 20)}...` : 'NONE');
+    
     if (apiKey) {
-      this.openai = new OpenAI({ apiKey });
+      try {
+        this.openai = new OpenAI({ apiKey });
+        console.log('✅ OpenAI client initialized successfully');
+      } catch (error) {
+        console.error('❌ OpenAI client initialization failed:', error);
+      }
+    } else {
+      console.warn('⚠️  No OpenAI API key found - using mock responses');
     }
   }
 
   async generateRecipe(input: GenerateRecipeDto): Promise<any> {
     try {
+      console.log('🚀 Starting recipe generation with input:', input);
+      console.log('🤖 OpenAI client exists:', !!this.openai);
+      
       // Validate input strictly
       const validationResult = await this.validateInput(input);
       if (!validationResult.success) {
+        console.log('❌ Validation failed:', validationResult.message);
         return {
           success: false,
           message: validationResult.message
@@ -33,10 +46,41 @@ export class RecipeGeneratorService {
 
       // Map ingredient UUIDs to names
       const processedInput = await this.processIngredients(input);
+      console.log('🔄 Processed ingredients:', processedInput.ingredients);
 
       // If OpenAI is not configured, return mock data
       if (!this.openai) {
+        console.log('🤖 Using mock recipe generation (OpenAI not available)');
         const mockRecipe = this.generateMockRecipe(processedInput);
+        
+        // Save mock recipe to database for video generation
+        try {
+          const uniqueSlug = `${mockRecipe.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`;
+          
+          await this.prisma.recipe.create({
+            data: {
+              id: mockRecipe.id,
+              title: mockRecipe.title,
+              slug: uniqueSlug,
+              servings: parseInt(mockRecipe.servings.toString()),
+              totalCalories: parseInt(mockRecipe.totalCalories.toString()),
+              caloriesPer: parseInt(mockRecipe.caloriesPerServing.toString()),
+              ingredients: mockRecipe.ingredients,
+              steps: mockRecipe.steps,
+              nutrition: mockRecipe.nutrition,
+              estimatedCost: parseFloat(mockRecipe.estimatedCostVND?.toString() || '0'),
+              difficulty: mockRecipe.difficulty,
+              tags: mockRecipe.tags,
+              imageUrl: mockRecipe.imageUrl,
+              imagePrompt: mockRecipe.imagePrompt,
+              isPublic: true,
+            },
+          });
+          console.log('✅ Mock recipe saved to database:', mockRecipe.id);
+        } catch (error) {
+          console.warn('Failed to save mock recipe to database:', error.message);
+        }
+        
         return {
           success: true,
           recipeId: mockRecipe.id,
@@ -50,6 +94,7 @@ export class RecipeGeneratorService {
       const systemPrompt = this.buildSystemPrompt(processedInput.locale || 'en');
       const userPrompt = this.buildUserPrompt(processedInput);
 
+      console.log('🤖 Calling OpenAI API with ingredients:', processedInput.ingredients);
       const completion = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
@@ -85,6 +130,35 @@ export class RecipeGeneratorService {
       try {
         const processedInput = await this.processIngredients(input);
         const mockRecipe = this.generateMockRecipe(processedInput);
+        
+        // Save fallback recipe to database
+        try {
+          const uniqueSlug = `${mockRecipe.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`;
+          
+          await this.prisma.recipe.create({
+            data: {
+              id: mockRecipe.id,
+              title: mockRecipe.title,
+              slug: uniqueSlug,
+              servings: parseInt(mockRecipe.servings.toString()),
+              totalCalories: parseInt(mockRecipe.totalCalories.toString()),
+              caloriesPer: parseInt(mockRecipe.caloriesPerServing.toString()),
+              ingredients: mockRecipe.ingredients,
+              steps: mockRecipe.steps,
+              nutrition: mockRecipe.nutrition,
+              estimatedCost: parseFloat(mockRecipe.estimatedCostVND?.toString() || '0'),
+              difficulty: mockRecipe.difficulty,
+              tags: mockRecipe.tags,
+              imageUrl: mockRecipe.imageUrl,
+              imagePrompt: mockRecipe.imagePrompt,
+              isPublic: true,
+            },
+          });
+          console.log('✅ Fallback recipe saved to database:', mockRecipe.id);
+        } catch (error) {
+          console.warn('Failed to save fallback recipe to database:', error.message);
+        }
+        
         return {
           success: true,
           recipeId: mockRecipe.id,
@@ -282,16 +356,73 @@ Required JSON Schema:
     const difficulty = input.difficulty || 'easy';
     const cuisine = input.cuisine || 'vietnamese';
 
-    // Generate title based on cuisine and ingredients
-    let title = 'Gà rim cà chua nhanh';
-    if (input.cuisine) {
-      if (input.cuisine.toLowerCase().includes('italian')) {
-        title = 'Chicken Tomato Pasta';
-      } else if (input.cuisine.toLowerCase().includes('asian')) {
-        title = 'Asian Chicken Stir-fry';
-      } else if (input.cuisine.toLowerCase().includes('mexican')) {
-        title = 'Chicken Tomato Tacos';
+    // Generate title based on actual ingredients
+    const ingredientNames = input.ingredients || [];
+    console.log('🍜 Generating mock recipe for ingredients:', ingredientNames);
+    
+    let title = 'Mixed Ingredient Recipe';
+    let recipeIngredients = [];
+    let steps = [];
+    
+    // Generate recipe based on actual ingredients
+    if (ingredientNames.some(ing => ing.toLowerCase().includes('mì') || ing.toLowerCase().includes('noodle'))) {
+      if (ingredientNames.some(ing => ing.toLowerCase().includes('trứng') || ing.toLowerCase().includes('egg'))) {
+        title = 'Mì trứng chiên giòn';
+        recipeIngredients = [
+          { name: 'Mì sợi', normalized: 'instant_noodles', quantity: 1, unit: 'gói' },
+          { name: 'Trứng gà', normalized: 'eggs', quantity: 2, unit: 'quả' },
+          { name: 'Hành lá', normalized: 'scallions', quantity: 2, unit: 'cây' },
+          { name: 'Dầu ăn', normalized: 'cooking_oil', quantity: 2, unit: 'thìa canh' },
+          { name: 'Nước mắm', normalized: 'fish_sauce', quantity: 1, unit: 'thìa cà phê' }
+        ];
+        steps = [
+          { order: 1, text: 'Luộc mì sợi trong 2-3 phút, vớt ra để ráo.', durationMinutes: 3 },
+          { order: 2, text: 'Đánh trứng trong bát, thêm chút muối tiêu.', durationMinutes: 1 },
+          { order: 3, text: 'Làm nóng chảo, cho dầu vào và đổ trứng vào chiên.', durationMinutes: 2 },
+          { order: 4, text: 'Cho mì vào trộn đều với trứng, chiên cho đến khi vàng giòn.', durationMinutes: 5 },
+          { order: 5, text: 'Nêm nước mắm, rắc hành lá và tắt bếp.', durationMinutes: 1 }
+        ];
+      } else {
+        title = 'Mì xào đơn giản';
+        recipeIngredients = [
+          { name: 'Mì sợi', normalized: 'instant_noodles', quantity: 1, unit: 'gói' },
+          { name: 'Rau củ', normalized: 'mixed_vegetables', quantity: 100, unit: 'g' },
+          { name: 'Nước mắm', normalized: 'fish_sauce', quantity: 1, unit: 'thìa canh' }
+        ];
+        steps = [
+          { order: 1, text: 'Luộc mì sợi cho chín, vớt ra.', durationMinutes: 3 },
+          { order: 2, text: 'Xào rau củ trong chảo nóng.', durationMinutes: 3 },
+          { order: 3, text: 'Cho mì vào trộn đều, nêm nước mắm.', durationMinutes: 2 }
+        ];
       }
+    } else if (ingredientNames.some(ing => ing.toLowerCase().includes('gà') || ing.toLowerCase().includes('chicken'))) {
+      title = 'Gà rim cà chua nhanh';
+      recipeIngredients = [
+        { name: 'Thịt gà', normalized: 'chicken_breast', quantity: 300, unit: 'g' },
+        { name: 'Cà chua', normalized: 'tomato', quantity: 2, unit: 'quả' },
+        { name: 'Hành tây', normalized: 'onion', quantity: 1, unit: 'củ' },
+        { name: 'Tỏi', normalized: 'garlic', quantity: 3, unit: 'tép' }
+      ];
+      steps = [
+        { order: 1, text: 'Rửa sạch thịt gà, cắt miếng vừa ăn.', durationMinutes: 5 },
+        { order: 2, text: 'Cà chua cắt múi cau, hành tây thái lát.', durationMinutes: 3 },
+        { order: 3, text: 'Xào thịt gà cho chín vàng.', durationMinutes: 8 },
+        { order: 4, text: 'Thêm cà chua, rim cho đến khi sốt đặc.', durationMinutes: 12 }
+      ];
+    } else {
+      // Generic recipe for other ingredients
+      title = `Món ăn từ ${ingredientNames.slice(0,2).join(' và ')}`;
+      recipeIngredients = ingredientNames.slice(0,3).map((name, index) => ({
+        name,
+        normalized: name.toLowerCase().replace(/\s+/g, '_'),
+        quantity: 100 + index * 50,
+        unit: 'g'
+      }));
+      steps = [
+        { order: 1, text: `Sơ chế ${ingredientNames[0]} sạch sẽ.`, durationMinutes: 5 },
+        { order: 2, text: `Chế biến các nguyên liệu theo sở thích.`, durationMinutes: 10 },
+        { order: 3, text: 'Nêm nếm gia vị cho phù hợp và hoàn thành.', durationMinutes: 5 }
+      ];
     }
 
     const tags = [cuisine.toLowerCase(), 'quick', 'healthy'];
@@ -310,52 +441,16 @@ Required JSON Schema:
       difficulty,
       estimatedTimeMinutes: maxTime,
       tags,
-      ingredients: [
-        { name: 'Thịt gà', normalized: 'chicken_breast', quantity: 300, unit: 'g' },
-        { name: 'Cà chua', normalized: 'tomato', quantity: 2, unit: 'quả' },
-        { name: 'Hành tây', normalized: 'onion', quantity: 1, unit: 'củ' },
-        { name: 'Tỏi', normalized: 'garlic', quantity: 3, unit: 'tép' },
-        { name: 'Nước mắm', normalized: 'fish_sauce', quantity: 2, unit: 'thìa canh' },
-        { name: 'Đường', normalized: 'sugar', quantity: 1, unit: 'thìa cà phê' },
-        { name: 'Tiêu', normalized: 'pepper', quantity: 0.5, unit: 'thìa cà phê' }
-      ],
-      steps: [
-        { 
-          order: 1, 
-          text: 'Rửa sạch thịt gà, cắt thành miếng vừa ăn. Ướp với muối, tiêu trong 10 phút.', 
-          durationMinutes: 10, 
-          tips: 'Ướp thịt giúp thấm gia vị hơn' 
-        },
-        { 
-          order: 2, 
-          text: 'Cà chua rửa sạch, cắt múi cau. Hành tây thái lát, tỏi băm nhỏ.', 
-          durationMinutes: 5 
-        },
-        { 
-          order: 3, 
-          text: 'Đun chảo với một chút dầu, phi thơm tỏi và hành tây.', 
-          durationMinutes: 2 
-        },
-        { 
-          order: 4, 
-          text: 'Cho thịt gà vào xào trên lửa lớn cho đến khi chín đều, khoảng 7-8 phút.', 
-          durationMinutes: 8 
-        },
-        { 
-          order: 5, 
-          text: 'Thêm cà chua vào, nêm nước mắm, đường. Đảo đều và rim trong 10-15 phút cho đến khi sốt cà chua đặc lại.', 
-          durationMinutes: 15, 
-          tips: 'Rim với lửa vừa để tránh cháy' 
-        }
-      ],
+      ingredients: recipeIngredients,
+      steps,
       nutrition: {
-        protein_g: 45,
-        fat_g: 12,
-        carbs_g: 18,
-        fiber_g: 4,
-        sodium_mg: 850
+        protein_g: 25,
+        fat_g: 8,
+        carbs_g: 35,
+        fiber_g: 3,
+        sodium_mg: 650
       },
-      imagePrompt: 'A photorealistic Vietnamese chicken and tomato stew in a clay pot, garnished with scallions, shot from above, warm lighting',
+      imagePrompt: `A photorealistic ${title} dish, beautifully plated, warm lighting, food photography`,
       imageGenerationRequested: input.imageGeneration,
       imageUrl: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg'
     };
