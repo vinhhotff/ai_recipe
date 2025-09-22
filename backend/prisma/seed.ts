@@ -16,7 +16,7 @@ async function main() {
       email: 'demo@recipeai.com',
       password: hashedPassword,
       name: 'Demo User',
-      role: 'USER',
+      role: 'MEMBER',
       prefs: {
         diet: 'NONE',
         allergies: [],

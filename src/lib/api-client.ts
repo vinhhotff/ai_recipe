@@ -171,23 +171,206 @@ class ApiClient {
     return this.post<ApiResponse>('/ingredients/compute-recipe-cost', { ingredients });
   }
 
-  // Recipes
+  // New Recipe Management System
+  async getRecipes(filters?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    cuisine?: string;
+    difficulty?: string;
+    tags?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    createdByAI?: boolean;
+  }) {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, value.toString());
+        }
+      });
+    }
+    const queryString = params.toString();
+    return this.get<ApiResponse>(`/recipes${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async getRecipe(id: string) {
+    return this.get<ApiResponse>(`/recipes/${id}`);
+  }
+
+  async createRecipe(data: any) {
+    return this.post<ApiResponse>('/recipes', data);
+  }
+
+  async updateRecipe(id: string, data: any) {
+    return this.patch<ApiResponse>(`/recipes/${id}`, data);
+  }
+
+  async deleteRecipe(id: string) {
+    return this.delete<ApiResponse>(`/recipes/${id}`);
+  }
+
   async generateRecipe(data: {
     ingredients: string[];
     cuisine?: string;
     difficulty?: string;
-    dietaryRestrictions?: string[];
     servings?: number;
+    maxTime?: number;
+    dietaryRestrictions?: string;
+    preferredTags?: string[];
   }) {
     return this.post<ApiResponse>('/recipes/generate', data);
   }
 
-  async saveRecipe(recipeId: string) {
+  async getIngredientSuggestions(ingredients: string[]) {
+    const ingredientsStr = ingredients.join(',');
+    return this.get<ApiResponse>(`/recipes/suggestions/ingredients?ingredients=${ingredientsStr}`);
+  }
+
+  async toggleLikeRecipe(recipeId: string) {
+    return this.post<ApiResponse>(`/recipes/${recipeId}/like`);
+  }
+
+  async toggleSaveRecipe(recipeId: string) {
     return this.post<ApiResponse>(`/recipes/${recipeId}/save`);
   }
 
-  async getUserRecipes(page = 1, limit = 10) {
-    return this.get<ApiResponse>(`/recipes?page=${page}&limit=${limit}`);
+  async getSavedRecipes(page = 1, limit = 10) {
+    return this.get<ApiResponse>(`/recipes/saved?page=${page}&limit=${limit}`);
+  }
+
+  // Comments
+  async getRecipeComments(recipeId: string) {
+    return this.get<ApiResponse>(`/recipes/${recipeId}/comments`);
+  }
+
+  async createRecipeComment(recipeId: string, data: { content: string; parentCommentId?: string }) {
+    return this.post<ApiResponse>(`/recipes/${recipeId}/comments`, data);
+  }
+
+  async updateRecipeComment(recipeId: string, commentId: string, data: { content: string }) {
+    return this.patch<ApiResponse>(`/recipes/${recipeId}/comments/${commentId}`, data);
+  }
+
+  async deleteRecipeComment(recipeId: string, commentId: string) {
+    return this.delete<ApiResponse>(`/recipes/${recipeId}/comments/${commentId}`);
+  }
+
+  async getUserComments(page = 1, limit = 10) {
+    return this.get<ApiResponse>(`/user/comments?page=${page}&limit=${limit}`);
+  }
+
+  // Admin endpoints
+  async getAdminDashboardOverview() {
+    return this.get<ApiResponse>('/admin/dashboard/overview');
+  }
+
+  async getAdminUserAnalytics(timeRange = '30d') {
+    return this.get<ApiResponse>(`/admin/analytics/users?timeRange=${timeRange}`);
+  }
+
+  async getAdminRecipeAnalytics(timeRange = '30d') {
+    return this.get<ApiResponse>(`/admin/analytics/recipes?timeRange=${timeRange}`);
+  }
+
+  async getAdminEngagementAnalytics(timeRange = '30d') {
+    return this.get<ApiResponse>(`/admin/analytics/engagement?timeRange=${timeRange}`);
+  }
+
+  async getAdminTrendingRecipes(limit = 10, timeRange = '30d') {
+    return this.get<ApiResponse>(`/admin/recipes/trending?limit=${limit}&timeRange=${timeRange}`);
+  }
+
+  async getAdminUsers(filters?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    role?: string;
+    status?: string;
+  }) {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, value.toString());
+        }
+      });
+    }
+    const queryString = params.toString();
+    return this.get<ApiResponse>(`/admin/users${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async updateUserRole(userId: string, role: string) {
+    return this.patch<ApiResponse>(`/admin/users/${userId}/role`, { role });
+  }
+
+  async toggleUserStatus(userId: string, isActive: boolean) {
+    return this.patch<ApiResponse>(`/admin/users/${userId}/status`, { isActive });
+  }
+
+  async deleteUser(userId: string) {
+    return this.delete<ApiResponse>(`/admin/users/${userId}`);
+  }
+
+  async getAdminFlaggedRecipes(filters?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    cuisine?: string;
+    flagged?: boolean;
+  }) {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, value.toString());
+        }
+      });
+    }
+    const queryString = params.toString();
+    return this.get<ApiResponse>(`/admin/recipes/flagged${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async approveRecipe(recipeId: string) {
+    return this.post<ApiResponse>(`/admin/recipes/${recipeId}/approve`);
+  }
+
+  async deleteRecipeAsAdmin(recipeId: string) {
+    return this.delete<ApiResponse>(`/admin/recipes/${recipeId}`);
+  }
+
+  async getAdminFlaggedComments(filters?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    status?: string;
+    type?: string;
+    flagged?: boolean;
+  }) {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, value.toString());
+        }
+      });
+    }
+    const queryString = params.toString();
+    return this.get<ApiResponse>(`/admin/comments/flagged${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async deleteComment(commentId: string) {
+    return this.delete<ApiResponse>(`/admin/comments/${commentId}`);
+  }
+
+  async unflagComment(commentId: string) {
+    return this.patch<ApiResponse>(`/admin/comments/${commentId}/unflag`);
+  }
+
+  async getSystemHealth() {
+    return this.get<ApiResponse>('/admin/system/health');
   }
 
   // Subscriptions

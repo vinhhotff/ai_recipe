@@ -7,7 +7,10 @@ import {
   Param,
   Delete,
   Query,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { CoreRecipesService } from './core-recipes.service';
 import {
@@ -130,5 +133,78 @@ export class CoreRecipesController {
   })
   remove(@Param('id') id: string) {
     return this.coreRecipesService.remove(id);
+  }
+
+  // Comment endpoints
+  @Post(':id/comments')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Add comment to recipe' })
+  @ApiResponse({ status: 201, description: 'Comment added successfully' })
+  @ApiResponse({ status: 404, description: 'Recipe not found' })
+  addComment(
+    @Param('id') recipeId: string,
+    @Body() commentData: { content: string; parentCommentId?: string },
+    @Request() req: any,
+  ) {
+    return this.coreRecipesService.addComment(recipeId, {
+      content: commentData.content,
+      parentCommentId: commentData.parentCommentId,
+      userId: req.user.id,
+      userName: req.user.name,
+    });
+  }
+
+  @Get(':id/comments')
+  @ApiOperation({ summary: 'Get comments for recipe' })
+  @ApiResponse({ status: 200, description: 'Comments fetched successfully' })
+  @ApiResponse({ status: 404, description: 'Recipe not found' })
+  getComments(@Param('id') recipeId: string) {
+    return this.coreRecipesService.getComments(recipeId);
+  }
+
+  @Delete(':id/comments/:commentId')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Delete comment' })
+  @ApiResponse({ status: 200, description: 'Comment deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Comment not found' })
+  @ApiResponse({ status: 403, description: 'Not authorized to delete this comment' })
+  deleteComment(
+    @Param('id') recipeId: string,
+    @Param('commentId') commentId: string,
+    @Request() req: any,
+  ) {
+    return this.coreRecipesService.deleteComment(commentId, req.user.id);
+  }
+
+  // Like endpoints
+  @Post(':id/like')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Toggle like for recipe' })
+  @ApiResponse({ status: 200, description: 'Like toggled successfully' })
+  @ApiResponse({ status: 404, description: 'Recipe not found' })
+  toggleLike(
+    @Param('id') recipeId: string,
+    @Request() req: any,
+  ) {
+    return this.coreRecipesService.toggleLike(recipeId, req.user.id, req.user.name);
+  }
+
+  @Get(':id/likes')
+  @ApiOperation({ summary: 'Get likes for recipe' })
+  @ApiResponse({ status: 200, description: 'Likes fetched successfully' })
+  @ApiResponse({ status: 404, description: 'Recipe not found' })
+  getLikes(@Param('id') recipeId: string) {
+    return this.coreRecipesService.getLikes(recipeId);
+  }
+
+  @Get(':id/interactions')
+  @ApiOperation({ summary: 'Get all interactions (likes + comments) for recipe' })
+  @ApiResponse({ status: 200, description: 'Interactions fetched successfully' })
+  @ApiResponse({ status: 404, description: 'Recipe not found' })
+  getInteractions(
+    @Param('id') recipeId: string,
+    @Query('userId') userId?: string,
+  ) {
+    return this.coreRecipesService.getInteractions(recipeId, userId);
   }
 }

@@ -18,6 +18,10 @@ import { AiRecipeCommentService } from '../modules/recipe/services/ai-recipe-com
 import { AiRecipeLikeController } from '../modules/recipe/controllers/ai-recipe-like.controller';
 import { AiRecipeCommentController } from '../modules/recipe/controllers/ai-recipe-comment.controller';
 
+// Recipe History functionality
+import { RecipeHistoryService } from '../modules/recipe/services/recipe-history.service';
+import { RecipeHistoryController, PublicRecipesController } from '../modules/recipe/controllers/recipe-history.controller';
+
 @Module({
   imports: [
     BullModule.registerQueue({
@@ -32,6 +36,7 @@ import { AiRecipeCommentController } from '../modules/recipe/controllers/ai-reci
     CoreRecipesService,
     AiRecipeLikeService,
     AiRecipeCommentService,
+    RecipeHistoryService,
   ],
   controllers: [
     RecipesController, 
@@ -39,12 +44,15 @@ import { AiRecipeCommentController } from '../modules/recipe/controllers/ai-reci
     DebugController,
     AiRecipeLikeController,
     AiRecipeCommentController,
+    RecipeHistoryController,
+    PublicRecipesController,
   ],
   exports: [
     RecipesService, 
     CoreRecipesService,
     AiRecipeLikeService,
     AiRecipeCommentService,
+    RecipeHistoryService,
   ],
 })
 export class RecipesModule {}

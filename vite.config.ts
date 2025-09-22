@@ -90,18 +90,27 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
-    strictPort: true,
+    strictPort: false, // Allow Vite to find alternative port if 3000 is busy
     hmr: {
-      port: 24678,
-      host: 'localhost'
+      port: 24679, // Use different port to avoid conflicts
+      host: 'localhost',
+      clientPort: 24679
     },
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
-        ws: true,
+        ws: false, // Disable WebSocket proxying to avoid conflicts
         rewrite: (path) => path,
+        configure: (proxy, options) => {
+          proxy.on('error', (err, req, res) => {
+            console.log('Proxy error:', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log('Proxying request:', req.method, req.url, '-> http://localhost:3001' + req.url);
+          });
+        },
       },
     },
   },

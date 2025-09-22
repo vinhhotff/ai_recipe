@@ -72,7 +72,6 @@ export class RecipeGeneratorService {
               difficulty: mockRecipe.difficulty,
               tags: mockRecipe.tags,
               imageUrl: mockRecipe.imageUrl,
-              imagePrompt: mockRecipe.imagePrompt,
               isPublic: true,
             },
           });
@@ -150,7 +149,6 @@ export class RecipeGeneratorService {
               difficulty: mockRecipe.difficulty,
               tags: mockRecipe.tags,
               imageUrl: mockRecipe.imageUrl,
-              imagePrompt: mockRecipe.imagePrompt,
               isPublic: true,
             },
           });

@@ -103,10 +103,8 @@ export const createMockRequest = (overrides = {}) => ({
   headers: {},
   ...overrides,
 });
-
 export const createMockResponse = () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const res: any = {};
+  const res : any = {};
   res.status = jest.fn().mockReturnValue(res);
   res.json = jest.fn().mockReturnValue(res);
   res.send = jest.fn().mockReturnValue(res);
@@ -114,3 +112,4 @@ export const createMockResponse = () => {
   res.clearCookie = jest.fn().mockReturnValue(res);
   return res;
 };
+

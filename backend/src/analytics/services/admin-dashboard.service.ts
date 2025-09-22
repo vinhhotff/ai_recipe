@@ -222,17 +222,16 @@ export class AdminDashboardService {
     // Get recipes with most likes and comments in the last 30 days
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-    const trendingRecipes = await this.prisma.communityRecipe.findMany({
+    const trendingRecipes = await this.prisma.recipe.findMany({
       where: {
         createdAt: { gte: thirtyDaysAgo },
-        status: 'PUBLISHED'
+        isDeleted: false,
+        isPublic: true
       },
       include: {
-        author: {
+        createdBy: {
           select: { email: true, name: true }
         },
-        likes: true,
-        comments: true,
         _count: {
           select: {
             likes: true,
@@ -250,7 +249,7 @@ export class AdminDashboardService {
     return trendingRecipes.map(recipe => ({
       recipeId: recipe.id,
       title: recipe.title,
-      authorName: recipe.author.name || recipe.author.email,
+      authorName: recipe.createdBy?.name || recipe.createdBy?.email || 'AI Generated',
       likesCount: recipe._count.likes,
       commentsCount: recipe._count.comments,
       createdAt: recipe.createdAt,

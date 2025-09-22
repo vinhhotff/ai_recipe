@@ -97,7 +97,7 @@ async function seedDemoUser() {
       email: 'demo@recipeapp.com',
       password: '$2b$10$CwTycUXWue0Thq9StjUM0OBeHFIre5vKBMR6.9e5u7/n8Gqg/Fz72', // password: "demo123"
       name: 'Demo User',
-      role: 'USER',
+      role: 'MEMBER',
       prefs: {
         diet: 'NONE',
         units: 'metric',

@@ -7,8 +7,9 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role?: string;
+  role: 'GUEST' | 'MEMBER' | 'ADMIN';
   createdAt: string;
+  updatedAt: string;
   subscription?: {
     id: string;
     planId: string;
@@ -44,6 +45,18 @@ export interface AuthContextType {
   refreshUser: () => void;
   checkFeatureAccess: (feature: string) => boolean;
   hasUsageLeft: (feature: string) => boolean;
+  // Role-based permissions
+  canCreateRecipe: () => boolean;
+  canCommentOnRecipe: () => boolean;
+  canLikeRecipe: () => boolean;
+  canSaveRecipe: () => boolean;
+  canEditRecipe: (recipeAuthorId?: string) => boolean;
+  canDeleteRecipe: (recipeAuthorId?: string) => boolean;
+  canEditComment: (commentAuthorId: string) => boolean;
+  canDeleteComment: (commentAuthorId: string) => boolean;
+  isAdmin: () => boolean;
+  isMember: () => boolean;
+  isGuest: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -211,6 +224,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // Role-based permission functions
+  const canCreateRecipe = (): boolean => {
+    return user?.role === 'MEMBER' || user?.role === 'ADMIN';
+  };
+
+  const canCommentOnRecipe = (): boolean => {
+    return user?.role === 'MEMBER' || user?.role === 'ADMIN';
+  };
+
+  const canLikeRecipe = (): boolean => {
+    return user?.role === 'MEMBER' || user?.role === 'ADMIN';
+  };
+
+  const canSaveRecipe = (): boolean => {
+    return user?.role === 'MEMBER' || user?.role === 'ADMIN';
+  };
+
+  const canEditRecipe = (recipeAuthorId?: string): boolean => {
+    if (user?.role === 'ADMIN') return true;
+    if (user?.role === 'MEMBER' && recipeAuthorId === user.id) return true;
+    return false;
+  };
+
+  const canDeleteRecipe = (recipeAuthorId?: string): boolean => {
+    if (user?.role === 'ADMIN') return true;
+    if (user?.role === 'MEMBER' && recipeAuthorId === user.id) return true;
+    return false;
+  };
+
+  const canEditComment = (commentAuthorId: string): boolean => {
+    if (user?.role === 'ADMIN') return true;
+    if (user?.id === commentAuthorId) return true;
+    return false;
+  };
+
+  const canDeleteComment = (commentAuthorId: string): boolean => {
+    if (user?.role === 'ADMIN') return true;
+    if (user?.id === commentAuthorId) return true;
+    return false;
+  };
+
+  const isAdmin = (): boolean => user?.role === 'ADMIN';
+  const isMember = (): boolean => user?.role === 'MEMBER';
+  const isGuest = (): boolean => user?.role === 'GUEST' || !user;
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -221,6 +279,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     refreshUser,
     checkFeatureAccess,
     hasUsageLeft,
+    canCreateRecipe,
+    canCommentOnRecipe,
+    canLikeRecipe,
+    canSaveRecipe,
+    canEditRecipe,
+    canDeleteRecipe,
+    canEditComment,
+    canDeleteComment,
+    isAdmin,
+    isMember,
+    isGuest,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

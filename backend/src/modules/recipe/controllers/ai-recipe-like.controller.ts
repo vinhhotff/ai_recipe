@@ -57,7 +57,7 @@ export class AiRecipeLikeController {
     },
   })
   async toggleLike(@Request() req: any, @Body() dto: CreateAiRecipeLikeDto) {
-    const result = await this.aiRecipeLikeService.toggleLike(req.user.sub, dto);
+    const result = await this.aiRecipeLikeService.toggleLike(req.user.id, dto);
     
     return {
       success: true,
@@ -123,7 +123,7 @@ export class AiRecipeLikeController {
     },
   })
   async getLikeStatus(@Request() req: any, @Param('recipeId') recipeId: string) {
-    const result = await this.aiRecipeLikeService.getLikeStatus(req.user.sub, recipeId);
+    const result = await this.aiRecipeLikeService.getLikeStatus(req.user.id, recipeId);
     
     return {
       success: true,
@@ -177,7 +177,7 @@ export class AiRecipeLikeController {
   })
   async removeLike(@Request() req: any, @Param('likeId') likeId: string) {
     const isAdmin = req.user.role === 'ADMIN';
-    await this.aiRecipeLikeService.removeLike(req.user.sub, likeId, isAdmin);
+    await this.aiRecipeLikeService.removeLike(req.user.id, likeId, isAdmin);
     
     return {
       success: true,

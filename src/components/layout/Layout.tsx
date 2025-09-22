@@ -10,15 +10,17 @@ import {
   User,
   CreditCard,
   LogOut,
-  Settings
+  Settings,
+  Shield
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 
 const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, logout, isLoading } = useAuth();
+  const { user, logout, isLoading, isAdmin } = useAuth();
   const location = useLocation();
 
   const navigation = [
@@ -27,6 +29,7 @@ const Layout: React.FC = () => {
     { name: 'Recipe Generator', href: '/app/recipe-generator', icon: ChefHat },
     { name: 'My Recipes', href: '/app/recipes', icon: BookOpen },
     { name: 'Profile', href: '/app/profile', icon: User },
+    ...(isAdmin() ? [{ name: 'Admin Panel', href: '/admin', icon: Shield }] : []),
   ];
 
   const handleLogout = async () => {
@@ -164,6 +167,9 @@ const Layout: React.FC = () => {
                 </div>
               )}
             </div>
+            
+            {/* Notifications */}
+            <NotificationCenter />
           </div>
         </header>
 

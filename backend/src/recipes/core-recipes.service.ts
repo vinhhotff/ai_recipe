@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { 
   CreateCoreRecipeDto, 
@@ -228,6 +228,309 @@ export class CoreRecipesService {
       success: true,
       message: 'Ingredients fetched successfully',
       data: ingredients,
+    };
+  }
+
+  // Comment methods
+  async addComment(recipeId: string, commentData: { content: string; parentCommentId?: string; userId: string; userName: string }) {
+    // Check if recipe exists
+    const recipe = await this.prisma.coreRecipe.findFirst({
+      where: { id: recipeId, isDeleted: false },
+    });
+
+    if (!recipe) {
+      throw new NotFoundException('Recipe not found');
+    }
+
+    // Check if parent comment exists (if provided)
+    if (commentData.parentCommentId) {
+      const parentComment = await this.prisma.coreRecipeComment.findFirst({
+        where: { 
+          id: commentData.parentCommentId, 
+          recipeId,
+          isDeleted: false 
+        },
+      });
+
+      if (!parentComment) {
+        throw new NotFoundException('Parent comment not found');
+      }
+    }
+
+    const comment = await this.prisma.coreRecipeComment.create({
+      data: {
+        content: commentData.content,
+        recipeId,
+        userId: commentData.userId,
+        parentCommentId: commentData.parentCommentId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        replies: {
+          where: { isDeleted: false },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Comment added successfully',
+      data: {
+        ...comment,
+        authorName: comment.user.name || 'Unknown',
+        authorId: comment.user.id,
+      },
+    };
+  }
+
+  async getComments(recipeId: string) {
+    // Check if recipe exists
+    const recipe = await this.prisma.coreRecipe.findFirst({
+      where: { id: recipeId, isDeleted: false },
+    });
+
+    if (!recipe) {
+      throw new NotFoundException('Recipe not found');
+    }
+
+    const comments = await this.prisma.coreRecipeComment.findMany({
+      where: {
+        recipeId,
+        isDeleted: false,
+        parentCommentId: null, // Only root comments
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        replies: {
+          where: { isDeleted: false },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    const formattedComments = comments.map(comment => ({
+      ...comment,
+      authorName: comment.user.name || 'Unknown',
+      authorId: comment.user.id,
+      replies: comment.replies?.map(reply => ({
+        ...reply,
+        authorName: reply.user.name || 'Unknown',
+        authorId: reply.user.id,
+      })) || [],
+    }));
+
+    return {
+      success: true,
+      message: 'Comments fetched successfully',
+      data: formattedComments,
+    };
+  }
+
+  async deleteComment(commentId: string, userId: string) {
+    const comment = await this.prisma.coreRecipeComment.findFirst({
+      where: {
+        id: commentId,
+        isDeleted: false,
+      },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    // Only the author can delete their comment
+    if (comment.userId !== userId) {
+      throw new ForbiddenException('You can only delete your own comments');
+    }
+
+    await this.prisma.coreRecipeComment.update({
+      where: { id: commentId },
+      data: { isDeleted: true },
+    });
+
+    return {
+      success: true,
+      message: 'Comment deleted successfully',
+    };
+  }
+
+  // Like methods
+  async toggleLike(recipeId: string, userId: string, userName: string) {
+    // Check if recipe exists
+    const recipe = await this.prisma.coreRecipe.findFirst({
+      where: { id: recipeId, isDeleted: false },
+    });
+
+    if (!recipe) {
+      throw new NotFoundException('Recipe not found');
+    }
+
+    // Check if user already liked this recipe
+    const existingLike = await this.prisma.coreRecipeLike.findUnique({
+      where: {
+        userId_recipeId: {
+          userId,
+          recipeId,
+        },
+      },
+    });
+
+    let isLiked = false;
+    let likeCount = 0;
+
+    if (existingLike) {
+      // Unlike - remove the like
+      await this.prisma.coreRecipeLike.delete({
+        where: {
+          userId_recipeId: {
+            userId,
+            recipeId,
+          },
+        },
+      });
+      isLiked = false;
+    } else {
+      // Like - create new like
+      await this.prisma.coreRecipeLike.create({
+        data: {
+          userId,
+          recipeId,
+        },
+      });
+      isLiked = true;
+    }
+
+    // Get updated like count
+    likeCount = await this.prisma.coreRecipeLike.count({
+      where: { recipeId },
+    });
+
+    return {
+      success: true,
+      message: isLiked ? 'Recipe liked successfully' : 'Recipe unliked successfully',
+      data: {
+        isLiked,
+        likeCount,
+      },
+    };
+  }
+
+  async getLikes(recipeId: string) {
+    // Check if recipe exists
+    const recipe = await this.prisma.coreRecipe.findFirst({
+      where: { id: recipeId, isDeleted: false },
+    });
+
+    if (!recipe) {
+      throw new NotFoundException('Recipe not found');
+    }
+
+    const likes = await this.prisma.coreRecipeLike.findMany({
+      where: { recipeId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    const formattedLikes = likes.map(like => ({
+      id: like.id,
+      userId: like.userId,
+      userName: like.user.name || 'Unknown',
+      recipeId: like.recipeId,
+      createdAt: like.createdAt.toISOString(),
+    }));
+
+    return {
+      success: true,
+      message: 'Likes fetched successfully',
+      data: formattedLikes,
+    };
+  }
+
+  async getInteractions(recipeId: string, currentUserId?: string) {
+    // Check if recipe exists
+    const recipe = await this.prisma.coreRecipe.findFirst({
+      where: { id: recipeId, isDeleted: false },
+    });
+
+    if (!recipe) {
+      throw new NotFoundException('Recipe not found');
+    }
+
+    // Get likes and comments in parallel
+    const [likes, comments] = await Promise.all([
+      this.getLikes(recipeId),
+      this.getComments(recipeId),
+    ]);
+
+    // Check if current user has liked this recipe
+    let isLikedByCurrentUser = false;
+    if (currentUserId) {
+      const userLike = await this.prisma.coreRecipeLike.findUnique({
+        where: {
+          userId_recipeId: {
+            userId: currentUserId,
+            recipeId,
+          },
+        },
+      });
+      isLikedByCurrentUser = !!userLike;
+    }
+
+    return {
+      success: true,
+      message: 'Interactions fetched successfully',
+      data: {
+        likes: likes.data,
+        comments: comments.data,
+        likeCount: likes.data.length,
+        commentCount: comments.data.reduce((total, comment) => {
+          return total + 1 + (comment.replies?.length || 0);
+        }, 0),
+        isLikedByCurrentUser,
+      },
     };
   }
 

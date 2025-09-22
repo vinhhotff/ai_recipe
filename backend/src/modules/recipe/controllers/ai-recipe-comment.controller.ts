@@ -44,7 +44,7 @@ export class AiRecipeCommentController {
     },
   })
   async createComment(@Request() req: any, @Body() dto: CreateAiRecipeCommentDto) {
-    const comment = await this.aiRecipeCommentService.createComment(req.user.sub, dto);
+    const comment = await this.aiRecipeCommentService.createComment(req.user.id, dto);
     
     return {
       success: true,
@@ -136,7 +136,7 @@ export class AiRecipeCommentController {
     @Body() dto: UpdateAiRecipeCommentDto
   ) {
     const isAdmin = req.user.role === 'ADMIN';
-    const comment = await this.aiRecipeCommentService.updateComment(req.user.sub, commentId, dto, isAdmin);
+    const comment = await this.aiRecipeCommentService.updateComment(req.user.id, commentId, dto, isAdmin);
     
     return {
       success: true,
@@ -161,7 +161,7 @@ export class AiRecipeCommentController {
   })
   async deleteComment(@Request() req: any, @Param('commentId') commentId: string) {
     const isAdmin = req.user.role === 'ADMIN';
-    await this.aiRecipeCommentService.deleteComment(req.user.sub, commentId, isAdmin);
+    await this.aiRecipeCommentService.deleteComment(req.user.id, commentId, isAdmin);
     
     return {
       success: true,

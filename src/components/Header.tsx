@@ -1,6 +1,7 @@
 import React from 'react';
-import { ChefHat, User, LogOut, BookOpen } from 'lucide-react';
+import { ChefHat, User, LogOut, BookOpen, CreditCard } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { Link } from 'react-router-dom';
 
 interface HeaderProps {
   onNavigateToRecipes?: () => void;
@@ -20,32 +21,58 @@ export const Header: React.FC<HeaderProps> = ({ onNavigateToRecipes }) => {
             <span className="text-xl font-bold text-gray-900">RecipeAI</span>
           </div>
           
-          {user && (
-            <div className="flex items-center space-x-4">
-              {onNavigateToRecipes && (
+          <div className="flex items-center space-x-4">
+            {/* Subscription plans link - available for everyone */}
+            <Link
+              to="/subscription/plans"
+              className="flex items-center space-x-1 px-3 py-2 text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors font-medium"
+            >
+              <CreditCard className="w-4 h-4" />
+              <span>Gói dịch vụ</span>
+            </Link>
+            
+            {user ? (
+              <>
+                {onNavigateToRecipes && (
+                  <button
+                    onClick={onNavigateToRecipes}
+                    className="flex items-center space-x-1 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    <span>Công thức của tôi</span>
+                  </button>
+                )}
+                <div className="flex items-center space-x-2">
+                  <div className="bg-gray-100 p-2 rounded-full">
+                    <User className="w-4 h-4 text-gray-600" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-700">{user.name}</span>
+                </div>
                 <button
-                  onClick={onNavigateToRecipes}
+                  onClick={logout}
                   className="flex items-center space-x-1 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  <BookOpen className="w-4 h-4" />
-                  <span>Công thức của tôi</span>
+                  <LogOut className="w-4 h-4" />
+                  <span>Đăng xuất</span>
                 </button>
-              )}
-              <div className="flex items-center space-x-2">
-                <div className="bg-gray-100 p-2 rounded-full">
-                  <User className="w-4 h-4 text-gray-600" />
-                </div>
-                <span className="text-sm font-medium text-gray-700">{user.name}</span>
-              </div>
-              <button
-                onClick={logout}
-                className="flex items-center space-x-1 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Đăng xuất</span>
-              </button>
-            </div>
-          )}
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/auth/login"
+                  className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Đăng nhập
+                </Link>
+                <Link
+                  to="/auth/register"
+                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Đăng ký
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </header>

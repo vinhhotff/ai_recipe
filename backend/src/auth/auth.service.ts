@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { User, Role } from '@prisma/client';
+import { User } from '@prisma/client';
 
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';

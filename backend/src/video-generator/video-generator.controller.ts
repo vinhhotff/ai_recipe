@@ -65,7 +65,7 @@ export class VideoGeneratorController {
     description: 'Internal server error - Video generation failed' 
   })
   async generateVideo(
-    @Request() req: any,
+    @Request() req,
     @Body() generateVideoDto: GenerateRecipeVideoDto
   ): Promise<{
     success: boolean;
@@ -155,7 +155,7 @@ export class VideoGeneratorController {
     description: 'Recipe not found' 
   })
   async getRecipeVideos(
-    @Request() req: any,
+    @Request() req,
     @Param('recipeId') recipeId: string,
     @Query('userOnly') userOnly?: boolean
   ): Promise<{
@@ -192,7 +192,7 @@ export class VideoGeneratorController {
     description: 'Unauthorized - Invalid or missing authentication token' 
   })
   async getGenerationStats(
-    @Request() req: any
+    @Request() req
   ): Promise<{
     success: boolean;
     message: string;

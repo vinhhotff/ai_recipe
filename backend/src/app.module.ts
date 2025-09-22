@@ -9,13 +9,16 @@ import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { PantryModule } from './pantry/pantry.module';
-import { RecipesModule } from './recipes/recipes.module';
+import { RecipeModule } from './recipes/recipe.module';
+import { CommentModule } from './comments/comment.module';
+import { AdminModule } from './admin/admin.module';
 import { IngredientsModule } from './ingredients/ingredients.module';
 import { QueueModule } from './queue/queue.module';
 import { RecipeGeneratorModule } from './recipe-generator/recipe-generator.module';
 import { VideoGeneratorModule } from './video-generator/video-generator.module';
 import { MonetizationModule } from './monetization/monetization.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { WebSocketModule } from './websocket/websocket.module';
 
 @Module({
   imports: [
@@ -36,13 +39,16 @@ import { AnalyticsModule } from './analytics/analytics.module';
     AuthModule,
     UsersModule,
     PantryModule,
-    RecipesModule,
+    RecipeModule,
+    CommentModule,
+    AdminModule,
     IngredientsModule,
     QueueModule,
     RecipeGeneratorModule,
     VideoGeneratorModule,
     MonetizationModule,
     AnalyticsModule,
+    WebSocketModule,
   ],
 })
 export class AppModule {}
